@@ -3,8 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
 
 export default function Register() {
-  const [form, setForm]     = useState({ name: '', email: '', password: '', confirmPassword: '' });
-  const [error, setError]   = useState('');
+  const [form, setForm] = useState({
+    name: '', email: '', password: '', confirmPassword: '', role: 'USER'
+  });
+  const [error, setError]     = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
@@ -22,7 +24,12 @@ export default function Register() {
     }
     setLoading(true);
     try {
-      await authAPI.register({ name: form.name, email: form.email, password: form.password });
+      await authAPI.register({
+        name:     form.name,
+        email:    form.email,
+        password: form.password,
+        role:     form.role
+      });
       setSuccess('Registration successful! Please check your email to verify your account.');
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
@@ -52,26 +59,35 @@ export default function Register() {
         <form onSubmit={handleSubmit}>
           <div className="mb-3">
             <label className="form-label">Full Name</label>
-            <input type="text" name="name" className="form-control" placeholder="John Doe"
-              value={form.name} onChange={handleChange} required />
+            <input type="text" name="name" className="form-control"
+              placeholder="John Doe" value={form.name} onChange={handleChange} required />
           </div>
           <div className="mb-3">
             <label className="form-label">Email address</label>
-            <input type="email" name="email" className="form-control" placeholder="you@example.com"
-              value={form.email} onChange={handleChange} required />
+            <input type="email" name="email" className="form-control"
+              placeholder="you@example.com" value={form.email} onChange={handleChange} required />
           </div>
           <div className="mb-3">
             <label className="form-label">Password</label>
-            <input type="password" name="password" className="form-control" placeholder="Min. 6 characters"
-              value={form.password} onChange={handleChange} required />
+            <input type="password" name="password" className="form-control"
+              placeholder="Min. 6 characters" value={form.password} onChange={handleChange} required />
+          </div>
+          <div className="mb-3">
+            <label className="form-label">Confirm Password</label>
+            <input type="password" name="confirmPassword" className="form-control"
+              placeholder="Repeat password" value={form.confirmPassword} onChange={handleChange} required />
           </div>
           <div className="mb-4">
-            <label className="form-label">Confirm Password</label>
-            <input type="password" name="confirmPassword" className="form-control" placeholder="Repeat password"
-              value={form.confirmPassword} onChange={handleChange} required />
+            <label className="form-label">Role</label>
+            <select name="role" className="form-control" value={form.role} onChange={handleChange}>
+              <option value="USER">User</option>
+              <option value="ADMIN">Admin</option>
+            </select>
           </div>
           <button type="submit" className="btn-mis-primary" disabled={loading}>
-            {loading ? <><span className="spinner-border spinner-border-sm me-2"/>Creating account...</> : 'Create Account'}
+            {loading
+              ? <><span className="spinner-border spinner-border-sm me-2"/>Creating account...</>
+              : 'Create Account'}
           </button>
         </form>
 
