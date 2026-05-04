@@ -1,157 +1,249 @@
-import React, { useEffect, useState } from 'react';
-import { groupAPI } from '../services/api';
 
-function GroupModal({ group, onClose, onSave }) {
-  const [form, setForm] = useState(group || { name: '', type: 'GROUP', description: '' });
-  const [error, setError]   = useState('');
-  const [saving, setSaving] = useState(false);
+import { useState, useEffect } from "react";
+import API from "../services/api";
 
-  const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+const Groups = () => {
+  const [groups, setGroups] = useState([]);
+  const [totalGroups, setTotalGroups] = useState(0);
+  const [view, setView] = useState("dashboard");
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupName, setGroupName] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async e => {
-    e.preventDefault(); setError(''); setSaving(true);
+  const fetchGroups = async () => {
     try {
-      group?.id ? await groupAPI.update(group.id, form) : await groupAPI.create(form);
-      onSave();
+      const res = await API.get("/groups");
+      setGroups(res.data);
+      setTotalGroups(res.data.length);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save.');
-    } finally { setSaving(false); }
+      console.error("Failed to fetch groups", err);
+    }
   };
 
-  return (
-    <div className="mis-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mis-modal">
-        <div className="mis-modal-header">
-          <span className="mis-modal-title">{group?.id ? 'Edit Group/Brand' : 'Add Group / Brand'}</span>
-          <button className="btn-close-mis" onClick={onClose}>×</button>
-        </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mis-modal-body">
-            {error && <div className="alert-mis alert-danger">{error}</div>}
-            <div className="row g-3">
-              <div className="col-12">
-                <label className="form-label">Name *</label>
-                <input name="name" className="form-control" value={form.name} onChange={set} required placeholder="e.g. Marriott International" />
-              </div>
-              <div className="col-12">
-                <label className="form-label">Type</label>
-                <select name="type" className="form-control" value={form.type} onChange={set}>
-                  <option value="GROUP">Group</option>
-                  <option value="CHAIN">Chain</option>
-                  <option value="BRAND">Brand</option>
-                  <option value="SUBZONE">Subzone</option>
-                </select>
-              </div>
-              <div className="col-12">
-                <label className="form-label">Description</label>
-                <textarea name="description" className="form-control" rows={2} value={form.description} onChange={set} placeholder="Optional description..." />
-              </div>
+  useEffect(() => {
+    fetchGroups();
+  }, []);
+
+  const resetForm = () => {
+    setGroupName("");
+    setError("");
+    setEditingGroup(null);
+  };
+
+  const goToDashboard = () => {
+    resetForm();
+    setView("dashboard");
+  };
+
+  const handleAdd = async () => {
+    if (!groupName.trim()) {
+      setError("Group name must not be empty");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await API.post("/groups", { groupName: groupName.trim() });
+      await fetchGroups();
+      goToDashboard();
+    } catch (err) {
+      setError(err.response?.data || "Failed to add group");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!groupName.trim()) {
+      setError("Group name must not be empty");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    try {
+      await API.put(`/groups/${editingGroup.groupId}`, {
+        groupName: groupName.trim(),
+      });
+      await fetchGroups();
+      goToDashboard();
+    } catch (err) {
+      setError(err.response?.data || "Failed to update group");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (groupId) => {
+    if (!window.confirm("Are you sure you want to deactivate this group?")) return;
+    try {
+      await API.delete(`/groups/${groupId}`);
+      await fetchGroups();
+    } catch (err) {
+      alert(err.response?.data || "Cannot delete: group may be linked to a chain");
+    }
+  };
+
+  const openEdit = (group) => {
+    setEditingGroup(group);
+    setGroupName(group.groupName);
+    setError("");
+    setView("edit");
+  };
+
+
+  if (view === "add") {
+    return (
+      <div>
+        <h4 className="mb-4">Add Group</h4>
+        <div style={{ maxWidth: 400 }}>
+          <label className="form-label fw-semibold">Enter Group Name:</label>
+          <input
+            type="text"
+            className={`form-control mb-2 ${error ? "is-invalid" : ""}`}
+            placeholder="Enter Unique Group Name"
+            value={groupName}
+            onChange={(e) => {
+              setGroupName(e.target.value);
+              setError("");
+            }}
+          />
+          {error && (
+            <div className="alert alert-danger py-1 px-2 mb-2" role="alert">
+              {error}
             </div>
-          </div>
-          <div className="mis-modal-footer">
-            <button type="button" className="btn-mis-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-mis-primary" style={{ width: 'auto', padding: '9px 20px' }} disabled={saving}>
-              {saving ? <><span className="spinner-border spinner-border-sm me-2"/>Saving...</> : (group?.id ? 'Update' : 'Add')}
+          )}
+          <div className="d-flex gap-2">
+            <button
+              className="btn btn-primary"
+              onClick={handleAdd}
+              disabled={loading}
+            >
+              {loading ? "Adding..." : "Add Group"}
+            </button>
+            <button className="btn btn-secondary" onClick={goToDashboard}>
+              Cancel
             </button>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
-  );
-}
+    );
+  }
 
-const TYPE_COLORS = {
-  GROUP: 'status-sent', CHAIN: 'status-paid', BRAND: 'status-pending', SUBZONE: 'status-draft',
-};
-
-export default function Groups() {
-  const [groups,  setGroups]  = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [modal,   setModal]   = useState(null);
-  const [filter,  setFilter]  = useState('ALL');
-
-  const load = async () => {
-    setLoading(true);
-    try { const r = await groupAPI.getAll(); setGroups(r.data || []); }
-    catch { setGroups([]); } finally { setLoading(false); }
-  };
-
-  useEffect(() => { load(); }, []);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this entry?')) return;
-    try { await groupAPI.delete(id); load(); } catch { alert('Failed to delete.'); }
-  };
-
-  const types = ['ALL', 'GROUP', 'CHAIN', 'BRAND', 'SUBZONE'];
-  const filtered = filter === 'ALL' ? groups : groups.filter(g => g.type === filter);
+  if (view === "edit") {
+    return (
+      <div>
+        <h4 className="mb-4">Edit Group Name</h4>
+        <div style={{ maxWidth: 400 }}>
+          <label className="form-label fw-semibold">Edit Group Name:</label>
+          <input
+            type="text"
+            className={`form-control mb-2 ${error ? "is-invalid" : ""}`}
+            value={groupName}
+            onChange={(e) => {
+              setGroupName(e.target.value);
+              setError("");
+            }}
+          />
+          {error && (
+            <div className="alert alert-danger py-1 px-2 mb-2" role="alert">
+              {error}
+            </div>
+          )}
+          <div className="d-flex gap-2">
+            <button
+              className="btn btn-warning"
+              onClick={handleUpdate}
+              disabled={loading}
+            >
+              {loading ? "Updating..." : "Update"}
+            </button>
+            <button className="btn btn-secondary" onClick={goToDashboard}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <div className="d-flex align-items-center justify-content-between mb-4 gap-2 flex-wrap">
-        <div className="d-flex gap-1 flex-wrap">
-          {types.map(t => (
-            <button key={t} onClick={() => setFilter(t)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                border: '1.5px solid', cursor: 'pointer',
-                background: filter === t ? 'var(--mis-blue)' : 'white',
-                color: filter === t ? 'white' : 'var(--mis-muted)',
-                borderColor: filter === t ? 'var(--mis-blue)' : 'var(--mis-border)',
-              }}>
-              {t}
-            </button>
-          ))}
+      {/* Total Groups card */}
+      <div className="mb-4">
+        <div
+          className="card text-white bg-primary d-inline-block px-4 py-2"
+          style={{ minWidth: 140 }}
+        >
+          <div className="small">Total Groups</div>
+          <div className="fs-3 fw-bold">{totalGroups}</div>
         </div>
-        <button className="btn-mis-primary" style={{ width: 'auto', padding: '9px 18px' }} onClick={() => setModal('add')}>
-          <i className="bi bi-plus-circle me-2" />Add Group / Brand
-        </button>
       </div>
 
-      <div className="mis-card">
-        <div className="mis-card-header">
-          <span className="mis-card-title">Groups & Brands ({filtered.length})</span>
-        </div>
-        {loading ? <div className="text-center py-5"><div className="spinner-border text-primary" /></div> : (
-          <div className="table-responsive">
-            <table className="mis-table">
-              <thead>
-                <tr><th>#</th><th>Name</th><th>Type</th><th>Description</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={5}><div className="empty-state"><i className="bi bi-diagram-3" /><div>No groups or brands yet</div></div></td></tr>
-                ) : filtered.map((g, i) => (
-                  <tr key={g.id}>
-                    <td className="mono text-muted-mis" style={{ fontSize: 12 }}>{i + 1}</td>
-                    <td className="fw-500">{g.name}</td>
-                    <td><span className={`status-pill ${TYPE_COLORS[g.type] || 'status-draft'}`}>{g.type}</span></td>
-                    <td className="text-muted-mis" style={{ fontSize: 12 }}>{g.description || '—'}</td>
-                    <td>
-                      <div className="d-flex gap-2">
-                        <button className="btn-mis-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setModal(g)}>
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button className="btn-mis-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleDelete(g.id)}>
-                          <i className="bi bi-trash" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <button
+        className="btn btn-success mb-3"
+        onClick={() => {
+          resetForm();
+          setView("add");
+        }}
+      >
+        + Add Group
+      </button>
 
-      {modal && (
-        <GroupModal
-          group={modal === 'add' ? null : modal}
-          onClose={() => setModal(null)}
-          onSave={() => { setModal(null); load(); }}
-        />
-      )}
+      <table className="table table-bordered table-hover">
+        <thead className="table-dark">
+          <tr>
+            <th>Sr. No</th>
+            <th>Group Name</th>
+            <th>Status</th>
+            <th>Edit</th>
+            <th>Delete</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.length === 0 ? (
+            <tr>
+              <td colSpan={5} className="text-center text-muted">
+                No groups found. Add one above.
+              </td>
+            </tr>
+          ) : (
+            groups.map((group, index) => (
+              <tr key={group.groupId}>
+                <td>{index + 1}</td>
+                <td>{group.groupName}</td>
+                <td>
+                  <span
+                    className={`badge ${
+                      group.isActive ? "bg-success" : "bg-secondary"
+                    }`}
+                  >
+                    {group.isActive ? "Active" : "Inactive"}
+                  </span>
+                </td>
+                <td>
+                  <button
+                    className="btn btn-warning btn-sm"
+                    onClick={() => openEdit(group)}
+                  >
+                    Edit
+                  </button>
+                </td>
+                <td>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => handleDelete(group.groupId)}
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))
+          )}
+        </tbody>
+      </table>
     </div>
   );
-}
+};
+
+export default Groups;
