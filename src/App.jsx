@@ -40,6 +40,8 @@ export default function App() {
             <Route path="invoices"  element={<Invoices />} />
             <Route path="payments"  element={<Payments />} />
             <Route path="groups"    element={<Groups />} />
+            <Route path="/chains" element={<Chains />} />
+            <Route path="/brands" element={<Brands />} />
           </Route>
 
           {/* Fallback */}
