@@ -4,14 +4,16 @@ import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { section: 'Main' },
-  { to: '/dashboard', icon: 'bi-grid-fill',         label: 'Dashboard' },
-  { to: '/clients',   icon: 'bi-people-fill',        label: 'Clients' },
+  { to: '/dashboard', icon: 'bi-grid-fill',        label: 'Dashboard' },
+  { to: '/clients',   icon: 'bi-people-fill',       label: 'Clients' },
   { section: 'Billing' },
-  { to: '/estimates', icon: 'bi-file-earmark-text',  label: 'Estimates' },
-  { to: '/invoices',  icon: 'bi-receipt',             label: 'Invoices' },
-  { to: '/payments',  icon: 'bi-credit-card-fill',    label: 'Payments' },
+  { to: '/estimates', icon: 'bi-file-earmark-text', label: 'Estimates' },
+  { to: '/invoices',  icon: 'bi-receipt',            label: 'Invoices' },
+  { to: '/payments',  icon: 'bi-credit-card-fill',   label: 'Payments' },
   { section: 'Settings' },
-  { to: '/groups',    icon: 'bi-diagram-3-fill',      label: 'Groups & Brands' },
+  { to: '/groups',    icon: 'bi-diagram-3-fill',     label: 'Manage Groups' },
+  { to: '/chains',    icon: 'bi-link-45deg',         label: 'Manage Chains' },
+  { to: '/brands',    icon: 'bi-tag-fill',           label: 'Manage Brands' },
 ];
 
 export default function Sidebar({ open, onClose }) {

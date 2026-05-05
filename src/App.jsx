@@ -15,6 +15,8 @@ import Estimates      from './pages/Estimates';
 import Invoices       from './pages/Invoices';
 import Payments       from './pages/Payments';
 import Groups         from './pages/Groups';
+import Brands from './pages/Brands';
+import Chains from './pages/Chains';
 
 export default function App() {
   return (
