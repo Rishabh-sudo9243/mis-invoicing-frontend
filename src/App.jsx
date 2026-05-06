@@ -17,6 +17,7 @@ import Payments       from './pages/Payments';
 import Groups         from './pages/Groups';
 import Brands from './pages/Brands';
 import Chains from './pages/Chains';
+import Zones from "./components/Zones";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="groups"    element={<Groups />} />
             <Route path="/chains" element={<Chains />} />
             <Route path="/brands" element={<Brands />} />
+            <Route path="/zones" element={<Zones />} />
           </Route>
 
           {/* Fallback */}

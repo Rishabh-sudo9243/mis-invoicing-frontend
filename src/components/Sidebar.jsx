@@ -14,6 +14,7 @@ const navItems = [
   { to: '/groups',    icon: 'bi-diagram-3-fill',     label: 'Manage Groups' },
   { to: '/chains',    icon: 'bi-link-45deg',         label: 'Manage Chains' },
   { to: '/brands',    icon: 'bi-tag-fill',           label: 'Manage Brands' },
+  { label: "Manage SubZones", path: "/zones" },
 ];
 
 export default function Sidebar({ open, onClose }) {
