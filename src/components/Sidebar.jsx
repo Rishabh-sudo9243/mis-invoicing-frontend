@@ -14,7 +14,8 @@ const navItems = [
   { to: '/groups',    icon: 'bi-diagram-3-fill',       label: 'Manage Groups' },
   { to: '/chains',    icon: 'bi-link-45deg',           label: 'Manage Chains' },
   { to: '/brands',    icon: 'bi-tag-fill',             label: 'Manage Brands' },
-  { to: '/zones',     icon: 'bi-geo-alt-fill',         label: 'Manage SubZones' }, // ← FIXED
+  { to: '/zones',     icon: 'bi-geo-alt-fill',         label: 'Manage SubZones' },
+  { to: '/invoices', icon: 'bi-receipt', label: 'Manage Invoices' }
 ];
 
 export default function Sidebar({ open, onClose }) {

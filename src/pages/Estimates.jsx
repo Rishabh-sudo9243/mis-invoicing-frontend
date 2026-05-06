@@ -151,12 +151,13 @@ export function EstimatesDashboard() {
                   <th>Total</th>
                   <th>Edit</th>
                   <th>Delete</th>
+                  <th>Invoice</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="text-center text-muted">
+                      <td colSpan={12} className="text-center text-muted">
                       No estimates found.
                     </td>
                   </tr>
@@ -186,6 +187,14 @@ export function EstimatesDashboard() {
                           onClick={() => setDeleteId(est.estimatedId)}
                         >
                           Delete
+                        </button>
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-info btn-sm text-white"
+                          onClick={() => navigate(`/invoices/create/${est.estimatedId}`)}
+                        >
+                          Generate
                         </button>
                       </td>
                     </tr>

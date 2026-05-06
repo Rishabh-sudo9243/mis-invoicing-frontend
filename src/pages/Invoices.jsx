@@ -1,199 +1,424 @@
 import React, { useEffect, useState } from 'react';
-import { invoiceAPI, clientAPI } from '../services/api';
+import { useNavigate, useParams } from 'react-router-dom';
+import Sidebar from './Sidebar';
 
-const STATUS_OPTIONS = ['DRAFT', 'SENT', 'PENDING', 'PAID', 'OVERDUE'];
-const EMPTY = { clientId: '', title: '', description: '', totalAmount: '', dueDate: '', status: 'DRAFT' };
+const API = 'https://mis-invoicing-backend.onrender.com/api/invoices';
 
-function StatusPill({ status }) {
-  const map = { PAID:'paid', PENDING:'pending', OVERDUE:'overdue', DRAFT:'draft', SENT:'sent' };
-  return <span className={`status-pill status-${map[status]||'draft'}`}>{status}</span>;
-}
+// ─────────────────────────────────────────────
+// DASHBOARD
+// ─────────────────────────────────────────────
+export function InvoiceDashboard() {
+  const [invoices, setInvoices] = useState([]);
+  const [count, setCount] = useState(0);
+  const [search, setSearch] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const navigate = useNavigate();
 
-function InvoiceModal({ invoice, clients, onClose, onSave }) {
-  const [form, setForm] = useState(invoice ? {
-    clientId:    invoice.clientId || invoice.client?.id || '',
-    title:       invoice.title || '',
-    description: invoice.description || '',
-    totalAmount: invoice.totalAmount || '',
-    dueDate:     invoice.dueDate?.split('T')[0] || '',
-    status:      invoice.status || 'DRAFT',
-  } : EMPTY);
-  const [error, setError]   = useState('');
-  const [saving, setSaving] = useState(false);
+  const fetchInvoices = async (keyword = '') => {
+    const url = keyword ? `${API}?search=${keyword}` : API;
+    const res = await fetch(url);
+    const data = await res.json();
+    setInvoices(data);
+  };
 
-  const set = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const fetchCount = async () => {
+    const res = await fetch(`${API}/count`);
+    const data = await res.json();
+    setCount(data);
+  };
 
-  const handleSubmit = async e => {
-    e.preventDefault(); setError(''); setSaving(true);
-    try {
-      invoice?.id ? await invoiceAPI.update(invoice.id, form) : await invoiceAPI.create(form);
-      onSave();
-    } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save invoice.');
-    } finally { setSaving(false); }
+  useEffect(() => {
+    fetchInvoices();
+    fetchCount();
+  }, []);
+
+  const handleSearch = (e) => {
+    const val = e.target.value;
+    setSearch(val);
+    fetchInvoices(val);
+  };
+
+  const handleDelete = async () => {
+    await fetch(`${API}/${deleteTarget}`, { method: 'DELETE' });
+    setDeleteTarget(null);
+    fetchInvoices(search);
+    fetchCount();
   };
 
   return (
-    <div className="mis-modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="mis-modal">
-        <div className="mis-modal-header">
-          <span className="mis-modal-title">{invoice?.id ? 'Edit Invoice' : 'New Invoice'}</span>
-          <button className="btn-close-mis" onClick={onClose}>×</button>
+    <div className="d-flex">
+      <Sidebar />
+      <div className="container mt-4">
+        <h4 className="mb-3">Manage Invoice Section</h4>
+
+        {/* Stat Card */}
+        <div className="card text-white mb-3"
+          style={{ backgroundColor: '#e63946', width: '160px' }}>
+          <div className="card-body py-2 px-3">
+            <div className="small">Total Invoice</div>
+            <div className="fs-4 fw-bold">{count}</div>
+          </div>
         </div>
-        <form onSubmit={handleSubmit}>
-          <div className="mis-modal-body">
-            {error && <div className="alert-mis alert-danger">{error}</div>}
-            <div className="row g-3">
-              <div className="col-12">
-                <label className="form-label">Client *</label>
-                <select name="clientId" className="form-control" value={form.clientId} onChange={set} required>
-                  <option value="">Select client...</option>
-                  {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </div>
-              <div className="col-12">
-                <label className="form-label">Invoice Title *</label>
-                <input name="title" className="form-control" value={form.title} onChange={set} required placeholder="Invoice for services..." />
-              </div>
-              <div className="col-12">
-                <label className="form-label">Description</label>
-                <textarea name="description" className="form-control" rows={2} value={form.description} onChange={set} />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Total Amount (₹) *</label>
-                <input type="number" name="totalAmount" className="form-control" value={form.totalAmount} onChange={set} required min="0" placeholder="0.00" />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Due Date</label>
-                <input type="date" name="dueDate" className="form-control" value={form.dueDate} onChange={set} />
-              </div>
-              <div className="col-md-6">
-                <label className="form-label">Status</label>
-                <select name="status" className="form-control" value={form.status} onChange={set}>
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
+
+        {/* Search */}
+        <div className="mb-3">
+          <label className="fw-semibold">Search Invoice</label>
+          <input
+            className="form-control"
+            placeholder="type invoice number, chain id or company name"
+            value={search}
+            onChange={handleSearch}
+          />
+        </div>
+
+        {/* Table */}
+        <table className="table table-bordered table-hover">
+          <thead className="table-light">
+            <tr>
+              <th>Sr.No</th>
+              <th>Invoice NO</th>
+              <th>Estimate ID</th>
+              <th>Chain ID</th>
+              <th>Service Details</th>
+              <th>Total Qty</th>
+              <th>Price Per Qty</th>
+              <th>Total</th>
+              <th>Edit</th>
+              <th>Delete</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoices.length === 0 ? (
+              <tr><td colSpan={10} className="text-center">No invoices found</td></tr>
+            ) : invoices.map((inv, idx) => (
+              <tr key={inv.id}>
+                <td>{idx + 1}</td>
+                <td>{inv.invoiceNo}</td>
+                <td>{inv.estimatedId}</td>
+                <td>{inv.chainId}</td>
+                <td>{inv.serviceDetails}</td>
+                <td>{inv.qty}</td>
+                <td>{inv.costPerQty}</td>
+                <td>{inv.amountPayable}</td>
+                <td>
+                  <button className="btn btn-warning btn-sm"
+                    onClick={() => navigate(`/invoices/edit/${inv.id}`)}>
+                    Edit
+                  </button>
+                </td>
+                <td>
+                  <button className="btn btn-danger btn-sm"
+                    onClick={() => setDeleteTarget(inv.id)}>
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* Delete Modal */}
+        {deleteTarget && (
+          <div className="modal show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="modal-dialog modal-dialog-centered">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Confirm Delete</h5>
+                </div>
+                <div className="modal-body">
+                  Are you sure you want to delete this invoice?
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary"
+                    onClick={() => setDeleteTarget(null)}>Cancel</button>
+                  <button className="btn btn-danger"
+                    onClick={handleDelete}>Delete</button>
+                </div>
               </div>
             </div>
           </div>
-          <div className="mis-modal-footer">
-            <button type="button" className="btn-mis-outline" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn-mis-primary" style={{ width: 'auto', padding: '9px 20px' }} disabled={saving}>
-              {saving ? <><span className="spinner-border spinner-border-sm me-2"/>Saving...</> : (invoice?.id ? 'Update' : 'Create Invoice')}
-            </button>
-          </div>
-        </form>
+        )}
       </div>
     </div>
   );
 }
 
-export default function Invoices() {
-  const [invoices, setInvoices] = useState([]);
-  const [clients,  setClients]  = useState([]);
-  const [loading,  setLoading]  = useState(true);
-  const [modal,    setModal]    = useState(null);
-  const [filter,   setFilter]   = useState('ALL');
-  const [sending,  setSending]  = useState(null);
+// ─────────────────────────────────────────────
+// CREATE INVOICE (triggered from Estimates)
+// ─────────────────────────────────────────────
+export function CreateInvoice() {
+  const { estimatedId } = useParams();
+  const navigate = useNavigate();
 
-  const load = async () => {
-    setLoading(true);
+  const [form, setForm] = useState({
+    estimatedId: '',
+    chainId: '',
+    serviceDetails: '',
+    qty: '',
+    costPerQty: '',
+    amountPayable: '',
+    amountPaid: '',
+    balance: '',
+    dateOfService: '',
+    deliveryDetails: '',
+    emailId: '',
+  });
+  const [invoiceNo] = useState('Auto Generated');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    // Prefill from estimate
+    const fetchEstimate = async () => {
+      try {
+        const res = await fetch(
+          `https://mis-invoicing-backend.onrender.com/api/estimates/${estimatedId}`
+        );
+        const est = await res.json();
+        const amtPaid = est.totalCost || 0;
+        setForm({
+          estimatedId: est.estimatedId,
+          chainId: est.chainId,
+          serviceDetails: est.service || '',
+          qty: est.qty,
+          costPerQty: est.costPerUnit,
+          amountPayable: est.totalCost,
+          amountPaid: amtPaid,
+          balance: 0,
+          dateOfService: est.deliveryDate || '',
+          deliveryDetails: est.deliveryDetails || '',
+          emailId: '',
+        });
+      } catch (e) {
+        setError('Failed to fetch estimate details.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEstimate();
+  }, [estimatedId]);
+
+  const handleSubmit = async () => {
+    if (!form.emailId) {
+      setError('Email ID is required.');
+      return;
+    }
+    const payload = {
+      estimatedId: form.estimatedId,
+      chainId: form.chainId,
+      serviceDetails: form.serviceDetails,
+      qty: Number(form.qty),
+      costPerQty: Number(form.costPerQty),
+      amountPayable: Number(form.amountPayable),
+      balance: Number(form.balance),
+      dateOfPayment: new Date().toISOString().slice(0, 19).replace('T', ' '),
+      dateOfService: form.dateOfService,
+      deliveryDetails: form.deliveryDetails,
+      emailId: form.emailId,
+    };
     try {
-      const [inv, cli] = await Promise.all([invoiceAPI.getAll(), clientAPI.getAll()]);
-      setInvoices(inv.data || []); setClients(cli.data || []);
-    } catch { setInvoices([]); } finally { setLoading(false); }
+      const res = await fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const err = await res.text();
+        setError(err);
+        return;
+      }
+      navigate('/invoices');
+    } catch (e) {
+      setError('Failed to generate invoice.');
+    }
   };
 
-  useEffect(() => { load(); }, []);
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete this invoice?')) return;
-    try { await invoiceAPI.delete(id); load(); } catch { alert('Failed to delete.'); }
-  };
-
-  const handleSend = async (id) => {
-    setSending(id);
-    try { await invoiceAPI.send(id); alert('Invoice sent!'); load(); }
-    catch { alert('Could not send invoice.'); }
-    finally { setSending(null); }
-  };
-
-  const fmt = n => '₹' + Number(n).toLocaleString('en-IN');
-  const filtered = filter === 'ALL' ? invoices : invoices.filter(i => i.status === filter);
+  if (loading) return <div className="text-center mt-5">Loading estimate data...</div>;
 
   return (
-    <div>
-      <div className="d-flex align-items-center justify-content-between mb-4 gap-2 flex-wrap">
-        {/* Status filter tabs */}
-        <div className="d-flex gap-1 flex-wrap">
-          {['ALL', ...STATUS_OPTIONS].map(s => (
-            <button key={s} onClick={() => setFilter(s)}
-              style={{
-                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                border: '1.5px solid', cursor: 'pointer',
-                background: filter === s ? 'var(--mis-blue)' : 'white',
-                color: filter === s ? 'white' : 'var(--mis-muted)',
-                borderColor: filter === s ? 'var(--mis-blue)' : 'var(--mis-border)',
-              }}>
-              {s}
-            </button>
-          ))}
+    <div className="d-flex">
+      <Sidebar />
+      <div className="container mt-4">
+        <h4 className="mb-4">Create Invoice Section</h4>
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        <div className="row g-3">
+          {/* Row 1 */}
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Invoice No:</label>
+            <input className="form-control" value={invoiceNo} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Estimate ID:</label>
+            <input className="form-control" value={form.estimatedId} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Chain ID:</label>
+            <input className="form-control" value={form.chainId} disabled />
+          </div>
+
+          {/* Row 2 */}
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Service Provided:</label>
+            <input className="form-control" value={form.serviceDetails} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Quantity:</label>
+            <input className="form-control" value={form.qty} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Cost per Quantity:</label>
+            <input className="form-control" value={form.costPerQty} disabled />
+          </div>
+
+          {/* Row 3 */}
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Amount Payable in Rs:</label>
+            <input className="form-control" value={form.amountPayable} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Amount Paid in Rs:</label>
+            <input className="form-control" value={form.amountPaid} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Balance in Rs:</label>
+            <input className="form-control" value={form.balance} disabled />
+          </div>
+
+          {/* Row 4 */}
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Delivery Date:</label>
+            <input className="form-control" value={form.dateOfService} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Other Delivery Details:</label>
+            <textarea className="form-control" value={form.deliveryDetails} disabled rows={3} />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Enter Email ID:</label>
+            <input
+              className="form-control"
+              placeholder="xyz@gmail.com"
+              value={form.emailId}
+              onChange={(e) => setForm({ ...form, emailId: e.target.value })}
+            />
+          </div>
         </div>
-        <button className="btn-mis-primary" style={{ width: 'auto', padding: '9px 18px' }} onClick={() => setModal('add')}>
-          <i className="bi bi-receipt me-2" />New Invoice
+
+        <button className="btn btn-primary mt-4" onClick={handleSubmit}>
+          Generate Invoice
         </button>
       </div>
+    </div>
+  );
+}
 
-      <div className="mis-card">
-        <div className="mis-card-header">
-          <span className="mis-card-title">Invoices ({filtered.length})</span>
-        </div>
-        {loading ? <div className="text-center py-5"><div className="spinner-border text-primary" /></div> : (
-          <div className="table-responsive">
-            <table className="mis-table">
-              <thead>
-                <tr><th>Invoice #</th><th>Client</th><th>Title</th><th>Amount</th><th>Due Date</th><th>Status</th><th>Actions</th></tr>
-              </thead>
-              <tbody>
-                {filtered.length === 0 ? (
-                  <tr><td colSpan={7}><div className="empty-state"><i className="bi bi-receipt" /><div>No invoices found</div></div></td></tr>
-                ) : filtered.map((inv) => (
-                  <tr key={inv.id}>
-                    <td className="mono" style={{ fontSize: 12 }}>#INV-{String(inv.id).padStart(3,'0')}</td>
-                    <td>{inv.clientName || inv.client?.name || '—'}</td>
-                    <td className="fw-500">{inv.title}</td>
-                    <td className="mono">{fmt(inv.totalAmount || 0)}</td>
-                    <td style={{ fontSize: 12 }}>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString('en-IN') : '—'}</td>
-                    <td><StatusPill status={inv.status || 'DRAFT'} /></td>
-                    <td>
-                      <div className="d-flex gap-2">
-                        <button className="btn-mis-outline" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => setModal(inv)}>
-                          <i className="bi bi-pencil" />
-                        </button>
-                        <button className="btn-mis-outline" style={{ padding: '4px 10px', fontSize: 12 }}
-                          onClick={() => handleSend(inv.id)} disabled={sending === inv.id} title="Send Invoice">
-                          {sending === inv.id ? <span className="spinner-border spinner-border-sm" /> : <i className="bi bi-send" />}
-                        </button>
-                        <button className="btn-mis-danger" style={{ padding: '4px 10px', fontSize: 12 }} onClick={() => handleDelete(inv.id)}>
-                          <i className="bi bi-trash" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+// ─────────────────────────────────────────────
+// EDIT INVOICE (email only)
+// ─────────────────────────────────────────────
+export function EditInvoice() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+
+  const [form, setForm] = useState(null);
+  const [emailId, setEmailId] = useState('');
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchInvoice = async () => {
+      const res = await fetch(`${API}/${id}`);
+      const data = await res.json();
+      setForm(data);
+      setEmailId(data.emailId || '');
+    };
+    fetchInvoice();
+  }, [id]);
+
+  const handleUpdate = async () => {
+    try {
+      const res = await fetch(`${API}/${id}/email`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailId }),
+      });
+      if (!res.ok) throw new Error();
+      navigate('/invoices');
+    } catch {
+      setError('Failed to update invoice.');
+    }
+  };
+
+  if (!form) return <div className="text-center mt-5">Loading...</div>;
+
+  return (
+    <div className="d-flex">
+      <Sidebar />
+      <div className="container mt-4">
+        <h4 className="mb-4">Update Invoice Section</h4>
+        {error && <div className="alert alert-danger">{error}</div>}
+
+        <div className="row g-3">
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Invoice No:</label>
+            <input className="form-control" value={form.invoiceNo} disabled />
           </div>
-        )}
-      </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Estimate ID:</label>
+            <input className="form-control" value={form.estimatedId} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Chain ID:</label>
+            <input className="form-control" value={form.chainId} disabled />
+          </div>
 
-      {modal && (
-        <InvoiceModal
-          invoice={modal === 'add' ? null : modal}
-          clients={clients}
-          onClose={() => setModal(null)}
-          onSave={() => { setModal(null); load(); }}
-        />
-      )}
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Service Provided:</label>
+            <input className="form-control" value={form.serviceDetails} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Quantity:</label>
+            <input className="form-control" value={form.qty} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Cost per Quantity:</label>
+            <input className="form-control" value={form.costPerQty} disabled />
+          </div>
+
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Amount Payable in Rs:</label>
+            <input className="form-control" value={form.amountPayable} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Amount Paid in Rs:</label>
+            <input className="form-control" value={form.amountPayable} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Balance in Rs:</label>
+            <input className="form-control" value={form.balance} disabled />
+          </div>
+
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Delivery Date:</label>
+            <input className="form-control" value={form.dateOfService || ''} disabled />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Other Delivery Details:</label>
+            <textarea className="form-control" value={form.deliveryDetails || ''} disabled rows={3} />
+          </div>
+          <div className="col-md-4">
+            <label className="form-label fw-semibold">Enter Email ID:</label>
+            <input
+              className="form-control"
+              value={emailId}
+              onChange={(e) => setEmailId(e.target.value)}
+            />
+          </div>
+        </div>
+
+        <button className="btn btn-primary mt-4" onClick={handleUpdate}>
+          Update Invoice
+        </button>
+      </div>
     </div>
   );
 }
